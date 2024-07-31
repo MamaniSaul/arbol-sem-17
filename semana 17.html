@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Búsqueda de POI con OpenTrep y Leaflet</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #map {
+            height: 400px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Búsqueda de Puntos de Interés (POI)</h1>
+        <form id="search-form">
+            <label for="latitude">Latitud:</label>
+            <input type="number" id="latitude" name="latitude" step="0.000001" required>
+            <br>
+            <label for="longitude">Longitud:</label>
+            <input type="number" id="longitude" name="longitude" step="0.000001" required>
+            <br>
+            <button type="submit">Buscar POIs Cercanos</button>
+        </form>
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="path/to/opentrep.js"></script>
+    <script>
+        // Inicializa el mapa centrado en Puno, Perú
+        const map = L.map('map').setView([-15.840221, -70.021881], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Define los puntos de interés (POIs) en Puno, Perú
+        const pointsOfInterest = [
+            { name: 'Plaza de Armas', lat: -15.840221, lon: -70.021881 },
+            { name: 'Catedral de Puno', lat: -15.839682, lon: -70.022752 },
+            { name: 'Parque Pino', lat: -15.841798, lon: -70.023606 },
+            { name: 'Mercado Central', lat: -15.842012, lon: -70.022563 },
+            { name: 'Museo Carlos Dreyer', lat: -15.839096, lon: -70.022632 },
+            { name: 'Mirador El Condor', lat: -15.843004, lon: -70.021517 },
+            { name: 'Puerto de Puno', lat: -15.837474, lon: -70.016713 },
+            { name: 'Universidad Nacional del Altiplano', lat: -15.828119, lon: -70.021935 },
+            { name: 'Terminal Terrestre', lat: -15.832827, lon: -70.021393 },
+            { name: 'Centro Comercial Real Plaza', lat: -15.835549, lon: -70.019924 },
+            { name: 'Parque de la Madre', lat: -15.835712, lon: -70.024621 },
+            { name: 'Estadio Enrique Torres Belón', lat: -15.834327, lon: -70.024179 },
+            { name: 'Plaza Mayor', lat: -15.839300, lon: -70.021589 },
+            { name: 'Museo de la Coca y Costumbres', lat: -15.840027, lon: -70.019790 },
+            { name: 'Parque Huajsapata', lat: -15.843400, lon: -70.022025 },
+            { name: 'Iglesia de San Juan', lat: -15.840456, lon: -70.025281 },
+            { name: 'Cementerio Laykakota', lat: -15.832899, lon: -70.024516 },
+            { name: 'Parque del Niño', lat: -15.839817, lon: -70.023417 },
+            { name: 'Hospital Regional Manuel Núñez Butrón', lat: -15.831422, lon: -70.022579 },
+            { name: 'Colegio José Antonio Encinas', lat: -15.836679, lon: -70.024394 },
+            { name: 'Parque Dante Nava', lat: -15.838320, lon: -70.021146 },
+            { name: 'Parque Huascar', lat: -15.835412, lon: -70.022018 },
+            { name: 'Estadio Politécnico', lat: -15.834190, lon: -70.022740 },
+        ];
+
+        // Agrega los POIs al mapa
+        pointsOfInterest.forEach(poi => {
+            L.marker([poi.lat, poi.lon]).addTo(map)
+                .bindPopup(`<b>${poi.name}</b><br>${poi.lat}, ${poi.lon}`);
+        });
+
+        // Función para buscar POIs cercanos usando OpenTrep
+        function searchPOIs(lat, lon, radius) {
+            const results = [];
+            pointsOfInterest.forEach(poi => {
+                const distance = haversineDistance(lat, lon, poi.lat, poi.lon);
+                if (distance <= radius) {
+                    results.push({ poi, distance });
+                }
+            });
+            // Ordenar resultados por distancia y limitar a los 3 más cercanos
+            results.sort((a, b) => a.distance - b.distance);
+            return results.slice(0, 3);
+        }
+
+        // Función para calcular la distancia haversine entre dos puntos
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            function toRad(x) { return x * Math.PI / 180; }
+            const R = 6371; // km
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Maneja el evento de envío del formulario
+        document.getElementById('search-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const lat = parseFloat(document.getElementById('latitude').value);
+            const lon = parseFloat(document.getElementById('longitude').value);
+            const radius = 1; // km
+
+            // Busca los POIs cercanos
+            const results = searchPOIs(lat, lon, radius);
+
+            // Limpia el mapa de resultados anteriores
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && !layer._popup) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Muestra los resultados en el mapa y resalta los POIs cercanos
+            results.forEach(result => {
+                L.marker([result.poi.lat, result.poi.lon], { icon: L.icon({
+                    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-green.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })}).addTo(map)
+                    .bindPopup(`<b>${result.poi.name}</b><br>${result.poi.lat}, ${result.poi.lon}`);
+            });
+        });
+    </script>
+</body>
+</html>
